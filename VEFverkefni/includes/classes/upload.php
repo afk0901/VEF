@@ -1,5 +1,9 @@
 <?php
 namespace File; 
+require_once './Image.php';
+require './includes/connection.php';
+use Imageclass\Image;
+$newimage = new Image($conn);
 
 
 echo'<!DOCTYPE>
@@ -11,9 +15,6 @@ echo'<!DOCTYPE>
 </html>';
 
 class Upload {
-
-    
-
 
     protected $uploaded = [];   
     protected $destination;     
@@ -55,7 +56,7 @@ protected $Specialchar = false;
     public function upload($renameDuplicates) {
  $this->renameDuplicates = $renameDuplicates;
  $uploaded = current($_FILES);  
-
+ 
 //Ef að $uploaded['name'] er array þá eru margar skrár.
 if (is_array($uploaded['name'])) {
 
@@ -196,26 +197,32 @@ if (is_array($uploaded['name'])) {
     
     # method sem er kallað á aðeins innan class (protected)
     protected function moveFile($file) {
-
+     global $newimage;
      $filename = isset($this->newName) ? $this->newName : $file['name'];
-     
- $success = move_uploaded_file($file['tmp_name'],
- $this->destination . $filename);
         
         # stýrum hvaða skilaboð eru notuð í messages[]
         # $_message er proctected og þarf því á public  getMessages aðferð að halda svo sé hægt að ná í skilaboðin í fylkinu.
-        if ($success && $this->Specialchar == false) {
+        if ($this->Specialchar == false) {
+              
+               $success = move_uploaded_file($file['tmp_name'],
+               $this->destination . $filename);
+
             $result = $file['name'] .' ('.round($file['size'] / 1024.1,2).' MB) ' .$file['type']. ' var uploduð';
             
             if (!is_null($this->newName)) {
                 $result .= ', og var endurnefnd '.$this->newName;
                 
             }
+             
+            $dest_no_slash = str_replace('/', '', $this->destination.$filename);
+            $dest_no_slash_no_backslash = str_replace('\\','', $dest_no_slash);
+             
+            $newimage->newImageInfo($filename,$dest_no_slash_no_backslash,"Engin lýsing eins og stendur!");
 
             $this->messages[] = $result;
         }
 
-       
+
          else {
             $this->messages[] = 'Gat ekki uplodað ' . $filename;
         }
@@ -224,14 +231,19 @@ if (is_array($uploaded['name'])) {
 
     protected function checkName($file) {
 //$this->newName = null;
-if ($this->renameDuplicates) {
-   
-   $name = isset($this->newName) ? $this->newName : $file['name'];
+
+$name = isset($this->newName) ? $this->newName : $file['name'];
    $basename = pathinfo($name, PATHINFO_FILENAME);
    $extension = pathinfo($name, PATHINFO_EXTENSION);
+   $existing = scandir($this->destination);
 
- $existing = scandir($this->destination);
+   if(preg_match("/[\W]+/", $basename)){
+       $this->Specialchar = true;
+       echo "Ekki má hafa sérstafi í skráarheiti!";
+  }
 
+if ($this->renameDuplicates) {
+   
  if (in_array($name, $existing)) {
  // rename file
 
@@ -254,13 +266,6 @@ if ($this->renameDuplicates) {
  
 
  } while (in_array($this->newName, $existing));
-
-
-if(preg_match("/[\W]+/", $basename)){
-       $this->Specialchar = true;
-       echo "Ekki má hafa sérstafi í skráarheiti!";
-  }
-
  }
 
 if (!empty($this->suffix)) {
